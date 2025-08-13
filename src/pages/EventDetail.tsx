@@ -382,6 +382,7 @@ export default function EventDetailPage() {
                     <TableHead className="text-right">Games lost</TableHead>
                     <TableHead className="text-right">Games played</TableHead>
                     <TableHead className="text-right">Games %</TableHead>
+                    <TableHead className="text-right">Points</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -402,12 +403,13 @@ export default function EventDetailPage() {
                         <TableCell className="text-right">{row.gamesPerdidos}</TableCell>
                         <TableCell className="text-right">{row.gamesJugados}</TableCell>
                         <TableCell className="text-right">{gamesPercent}%</TableCell>
+                        <TableCell className="text-right">{row.puntos}</TableCell>
                       </TableRow>
                     );
                   })}
                   {posiciones.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground">
+                      <TableCell colSpan={12} className="text-center text-muted-foreground">
                         Sin datos de posiciones
                       </TableCell>
                     </TableRow>
