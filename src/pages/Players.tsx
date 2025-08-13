@@ -1,6 +1,5 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Seo from "@/components/Seo";
 import { toast } from "@/components/ui/use-toast";
+import { isSupabaseConnected } from "@/lib/supabaseOptional";
 
 const schema = z.object({
   nombre: z.string().min(2, "Ingresa un nombre"),
@@ -19,22 +19,24 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-async function fetchUsuarios() {
-  const { data, error } = await supabase.from("usuarios").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as { id: string; nombre: string; email: string | null; telefono: string | null; created_at: string }[];
+type Usuario = { id: string; nombre: string; email: string | null; telefono: string | null; created_at: string };
+
+async function fetchUsuariosMock(): Promise<Usuario[]> {
+  // MVP sin backend: devolver lista vacía y avisar
+  return [];
 }
 
 export default function PlayersPage() {
   const qc = useQueryClient();
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { nombre: "", email: "", telefono: "" } });
 
-  const { data, isLoading, error } = useQuery({ queryKey: ["usuarios"], queryFn: fetchUsuarios });
+  const { data, isLoading, error } = useQuery({ queryKey: ["usuarios"], queryFn: fetchUsuariosMock });
 
   const addPlayer = useMutation({
     mutationFn: async (values: FormValues) => {
-      const { error } = await supabase.from("usuarios").insert({ nombre: values.nombre, email: values.email, telefono: values.telefono });
-      if (error) throw error;
+      if (!isSupabaseConnected) {
+        throw new Error("Conecta la integración de Supabase para guardar jugadores.");
+      }
     },
     onSuccess: () => {
       form.reset({ nombre: "", email: "", telefono: "" });
@@ -42,7 +44,7 @@ export default function PlayersPage() {
       toast({ title: "Jugador agregado" });
     },
     onError: (e: any) => {
-      toast({ title: "Error al guardar", description: e?.message ?? "Verifica la migración de BD" });
+      toast({ title: "No se pudo guardar", description: e?.message ?? "Conecta Supabase desde el botón verde." });
     }
   });
 
@@ -113,6 +115,9 @@ export default function PlayersPage() {
               <span className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleString()}</span>
             </div>
           ))}
+          {(!data || data.length === 0) && (
+            <p className="text-sm text-muted-foreground">Conecta Supabase para ver y guardar jugadores.</p>
+          )}
         </div>
       </section>
     </main>
