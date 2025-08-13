@@ -9,7 +9,7 @@ const Index = () => {
       <div className="text-center space-y-6">
         <h1 className="text-4xl font-bold">Court Champions</h1>
         <p className="text-xl text-muted-foreground">Gestiona pozos, torneos y jugadores de pádel.</p>
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           <Button asChild>
             <Link to="/dashboard">Ir al Dashboard</Link>
           </Button>
@@ -18,6 +18,9 @@ const Index = () => {
           </Button>
           <Button variant="outline" asChild>
             <Link to="/ranking">Ver Ranking</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link to="/events">Ver Eventos</Link>
           </Button>
         </div>
       </div>
