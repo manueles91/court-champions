@@ -11,7 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 
 // --- Tipos ---
 export type Usuario = { id: string; nombre: string; email?: string | null; telefono?: string | null };
@@ -29,6 +32,7 @@ export type Partido = {
   gamesPareja1?: number;
   gamesPareja2?: number;
   resultado?: 1 | 2 | 0;
+  pista?: string; // Ej: "6", "9"
 };
 
 // --- Mock data ---
@@ -58,13 +62,13 @@ const in2h = new Date(now + 2 * 60 * 60 * 1000).toISOString();
 
 const mockPartidos: Partido[] = [
   // Ronda 1: jugados
-  { id: "m1", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p2", ronda: 1, gamesPareja1: 6, gamesPareja2: 4, resultado: 1 },
-  { id: "m2", eventoId: "t1", pareja1Id: "p3", pareja2Id: "p2", ronda: 1, gamesPareja1: 5, gamesPareja2: 5, resultado: 0 },
+  { id: "m1", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p2", ronda: 1, gamesPareja1: 6, gamesPareja2: 4, resultado: 1, pista: "6" },
+  { id: "m2", eventoId: "t1", pareja1Id: "p3", pareja2Id: "p2", ronda: 1, gamesPareja1: 5, gamesPareja2: 5, resultado: 0, pista: "9" },
   // Ronda 2: uno jugado, uno próximo
-  { id: "m3", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p3", ronda: 2, gamesPareja1: 3, gamesPareja2: 6, resultado: 2 },
-  { id: "m4", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p1", ronda: 2, fechaISO: in1h },
+  { id: "m3", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p3", ronda: 2, gamesPareja1: 2, gamesPareja2: 6, resultado: 2, pista: "6" },
+  { id: "m4", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p1", ronda: 2, fechaISO: in1h, pista: "9" },
   // Ronda 3: próximos
-  { id: "m5", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p3", ronda: 3, fechaISO: in2h },
+  { id: "m5", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p3", ronda: 3, fechaISO: in2h, pista: "6" },
 ];
 
 function nombreJugador(id: string) {
@@ -83,25 +87,28 @@ function useEventoData(eventoId: string) {
   return { evento, parejas, partidos, rondas };
 }
 
-// --- Cálculos de posiciones por pareja ---
+// --- Cálculos ---
 export type PosicionPareja = {
   parejaId: string;
   puntos: number; // 1 por victoria, 0.5 por empate
   partidosJugados: number;
   partidosGanados: number;
+  partidosEmpatados: number;
+  partidosPerdidos: number;
   porcentajePartidosGanados: number; // 0-100
   gamesJugados: number;
   gamesGanados: number;
+  gamesPerdidos: number;
   porcentajeGamesGanados: number; // 0-100
 };
 
-function computeTablaPosicionesPorPareja(partidos: Partido[], parejas: Pareja[]): PosicionPareja[] {
+function computeAggregatesPorPareja(partidos: Partido[], parejas: Pareja[]): PosicionPareja[] {
   const finalizados = partidos.filter((p) => p.resultado !== undefined && p.gamesPareja1 !== undefined && p.gamesPareja2 !== undefined);
-  const acumulado = new Map<string, { puntos: number; pj: number; pg: number; gj: number; gg: number }>();
+  const acumulado = new Map<string, { puntos: number; pj: number; pg: number; pe: number; pp: number; gj: number; gf: number; gc: number }>();
 
   function ensure(pairId: string) {
     if (!acumulado.has(pairId)) {
-      acumulado.set(pairId, { puntos: 0, pj: 0, pg: 0, gj: 0, gg: 0 });
+      acumulado.set(pairId, { puntos: 0, pj: 0, pg: 0, pe: 0, pp: 0, gj: 0, gf: 0, gc: 0 });
     }
     return acumulado.get(pairId)!;
   }
@@ -119,33 +126,42 @@ function computeTablaPosicionesPorPareja(partidos: Partido[], parejas: Pareja[])
     pareja1.gj += games1 + games2;
     pareja2.gj += games1 + games2;
 
-    pareja1.gg += games1;
-    pareja2.gg += games2;
+    pareja1.gf += games1;
+    pareja2.gf += games2;
+    pareja1.gc += games2;
+    pareja2.gc += games1;
 
     if (p.resultado === 1) {
       pareja1.pg += 1;
+      pareja2.pp += 1;
       pareja1.puntos += 1;
     } else if (p.resultado === 2) {
       pareja2.pg += 1;
+      pareja1.pp += 1;
       pareja2.puntos += 1;
     } else if (p.resultado === 0) {
+      pareja1.pe += 1;
+      pareja2.pe += 1;
       pareja1.puntos += 0.5;
       pareja2.puntos += 0.5;
     }
   }
 
   const rows: PosicionPareja[] = parejas.map((pareja) => {
-    const acc = acumulado.get(pareja.id) ?? { puntos: 0, pj: 0, pg: 0, gj: 0, gg: 0 };
+    const acc = acumulado.get(pareja.id) ?? { puntos: 0, pj: 0, pg: 0, pe: 0, pp: 0, gj: 0, gf: 0, gc: 0 };
     const porcentajePartidosGanados = acc.pj > 0 ? (acc.pg / acc.pj) * 100 : 0;
-    const porcentajeGamesGanados = acc.gj > 0 ? (acc.gg / acc.gj) * 100 : 0;
+    const porcentajeGamesGanados = acc.gj > 0 ? (acc.gf / acc.gj) * 100 : 0;
     return {
       parejaId: pareja.id,
       puntos: acc.puntos,
       partidosJugados: acc.pj,
       partidosGanados: acc.pg,
+      partidosEmpatados: acc.pe,
+      partidosPerdidos: acc.pp,
       porcentajePartidosGanados,
       gamesJugados: acc.gj,
-      gamesGanados: acc.gg,
+      gamesGanados: acc.gf,
+      gamesPerdidos: acc.gc,
       porcentajeGamesGanados,
     };
   });
@@ -157,26 +173,64 @@ function computeTablaPosicionesPorPareja(partidos: Partido[], parejas: Pareja[])
   });
 }
 
+function groupByPista(partidos: Partido[]) {
+  const by: Record<string, Partido[]> = {};
+  for (const p of partidos) {
+    const key = p.pista ?? "-";
+    by[key] = by[key] ?? [];
+    by[key].push(p);
+  }
+  return Object.entries(by)
+    .sort(([a], [b]) => `${a}`.localeCompare(`${b}`))
+    .map(([pista, lista]) => ({ pista, lista }));
+}
+
 export default function EventDetailPage() {
   const { id = "t1" } = useParams();
   const { evento, parejas, partidos, rondas } = useEventoData(id);
 
   const [rondaSeleccionada, setRondaSeleccionada] = useState<number | undefined>(rondas[0]);
+  const [metricView, setMetricView] = useState<"partidos" | "games">("partidos");
 
-  const posiciones = useMemo(() => computeTablaPosicionesPorPareja(partidos, parejas), [partidos, parejas]);
+  const posiciones = useMemo(() => computeAggregatesPorPareja(partidos, parejas), [partidos, parejas]);
 
-  const partidosProximos = useMemo(() => {
+  const partidosDeRonda = useMemo(() => {
     if (!rondaSeleccionada) return [] as Partido[];
-    return partidos.filter((p) => p.ronda === rondaSeleccionada && p.resultado === undefined);
+    return partidos.filter((p) => p.ronda === rondaSeleccionada);
   }, [partidos, rondaSeleccionada]);
+
+  const parejasEnBye = useMemo(() => {
+    if (!rondaSeleccionada) return [] as Pareja[];
+    const presentes = new Set<string>();
+    for (const p of partidosDeRonda) {
+      presentes.add(p.pareja1Id);
+      presentes.add(p.pareja2Id);
+    }
+    return parejas.filter((pa) => !presentes.has(pa.id));
+  }, [parejas, partidosDeRonda, rondaSeleccionada]);
+
+  function goPrevRound() {
+    if (!rondaSeleccionada) return;
+    const idx = rondas.indexOf(rondaSeleccionada);
+    if (idx > 0) setRondaSeleccionada(rondas[idx - 1]);
+  }
+  function goNextRound() {
+    if (!rondaSeleccionada) return;
+    const idx = rondas.indexOf(rondaSeleccionada);
+    if (idx < rondas.length - 1) setRondaSeleccionada(rondas[idx + 1]);
+  }
 
   return (
     <main className="container py-8 space-y-6">
       <Seo title={`${evento.nombre} - Court Champions`} description={`Detalle del pozo: ${evento.nombre}`} canonicalPath={`/events/${id}`} />
 
-      <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">{evento.nombre}</h1>
-        <p className="text-muted-foreground">Categoría: {evento.categoria}</p>
+      <header className="space-y-2">
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold tracking-tight">{evento.nombre}</h1>
+          <Badge variant="outline">Finalizado</Badge>
+        </div>
+        <p className="text-muted-foreground">Formato: Todos contra todos, pareja fija</p>
+        <p className="text-sm text-muted-foreground">Sábado 24 May 2025, 9:00 AM</p>
       </header>
 
       <Tabs defaultValue="pairs" className="w-full">
@@ -186,6 +240,7 @@ export default function EventDetailPage() {
           <TabsTrigger value="positions">Posiciones</TabsTrigger>
         </TabsList>
 
+        {/* PAREJAS */}
         <TabsContent value="pairs" className="space-y-4">
           <Card>
             <CardHeader>
@@ -201,14 +256,91 @@ export default function EventDetailPage() {
                 ))}
                 {parejas.length === 0 && <li className="text-sm text-muted-foreground">Sin parejas inscriptas</li>}
               </ul>
+              <p className="text-xs mt-4 text-muted-foreground">Pago aprobado</p>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* RONDAS */}
         <TabsContent value="rounds" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Seleccionar ronda</CardTitle>
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="icon" onClick={goPrevRound} aria-label="Ronda anterior">
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <CardTitle>
+                  Ronda {rondaSeleccionada ?? "-"} / {rondas.length}
+                </CardTitle>
+                <Button variant="ghost" size="icon" onClick={goNextRound} aria-label="Ronda siguiente">
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {groupByPista(partidosDeRonda).map(({ pista, lista }) => (
+                <div key={pista} className="mb-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Pista {pista}</h3>
+                  <div className="space-y-4">
+                    {lista.map((p) => {
+                      const p1 = parejas.find((pp) => pp.id === p.pareja1Id)!;
+                      const p2 = parejas.find((pp) => pp.id === p.pareja2Id)!;
+                      const score1 = p.gamesPareja1;
+                      const score2 = p.gamesPareja2;
+                      const isPlayed = p.resultado !== undefined && score1 !== undefined && score2 !== undefined;
+                      const p1Wins = p.resultado === 1;
+                      const p2Wins = p.resultado === 2;
+
+                      return (
+                        <div key={p.id} className="grid grid-cols-12 gap-3 items-center">
+                          <div className="col-span-8">
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">vs</span>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{nombrePareja(p1)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 rounded-md border flex items-center justify-center text-lg font-medium">
+                                      {score1 ?? "-"}
+                                    </div>
+                                    {isPlayed ? (
+                                      p1Wins ? <Check className="text-emerald-600" /> : <X className="text-destructive" />
+                                    ) : null}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{nombrePareja(p2)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 rounded-md border flex items-center justify-center text-lg font-medium">
+                                      {score2 ?? "-"}
+                                    </div>
+                                    {isPlayed ? (
+                                      p2Wins ? <Check className="text-emerald-600" /> : <X className="text-destructive" />
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {parejasEnBye.length > 0 && (
+                <p className="text-sm text-destructive mt-6">Pareja en bye</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Filtro alternativo: selector de ronda para accesibilidad */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Ir a ronda específica</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center gap-3">
               <Select
@@ -228,83 +360,76 @@ export default function EventDetailPage() {
               </Select>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Próximos partidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Pareja 1</TableHead>
-                    <TableHead>Pareja 2</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {partidosProximos.map((p) => {
-                    const p1 = parejas.find((pp) => pp.id === p.pareja1Id)!;
-                    const p2 = parejas.find((pp) => pp.id === p.pareja2Id)!;
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.fechaISO ? new Date(p.fechaISO).toLocaleString() : "-"}</TableCell>
-                        <TableCell>{nombrePareja(p1)}</TableCell>
-                        <TableCell>{nombrePareja(p2)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {partidosProximos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground">
-                        No hay partidos próximos para la ronda seleccionada
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </TabsContent>
 
+        {/* POSICIONES */}
         <TabsContent value="positions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tabla de posiciones</CardTitle>
+              <CardTitle>Podio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {posiciones.slice(0, 3).map((row, idx) => {
+                  const pareja = parejas.find((p) => p.id === row.parejaId)!;
+                  const label = idx === 0 ? "1er lugar: +50pts" : idx === 1 ? "2do lugar: +25pts" : "3er lugar: +10pts";
+                  return (
+                    <div key={row.parejaId} className={`rounded-md border p-3 ${idx === 0 ? "bg-muted" : ""}`}>
+                      <div className="text-sm text-muted-foreground mb-1">{label}</div>
+                      <div className="font-medium">{nombrePareja(pareja)}</div>
+                    </div>
+                  );
+                })}
+                {posiciones.length === 0 && <div className="text-sm text-muted-foreground col-span-3">Sin datos</div>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Tabs value={metricView} onValueChange={(v) => setMetricView(v as "partidos" | "games")}> 
+                  <TabsList>
+                    <TabsTrigger value="partidos">Partidos</TabsTrigger>
+                    <TabsTrigger value="games">Games</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Puntos</TableHead>
-                    <TableHead>Pareja</TableHead>
-                    <TableHead className="text-right">Partidos jugados</TableHead>
-                    <TableHead className="text-right">Partidos ganados</TableHead>
-                    <TableHead className="text-right">% partidos ganados</TableHead>
-                    <TableHead className="text-right">Games jugados</TableHead>
-                    <TableHead className="text-right">Games ganados</TableHead>
-                    <TableHead className="text-right">% games ganados</TableHead>
+                    <TableHead>#</TableHead>
+                    <TableHead>Parejas</TableHead>
+                    <TableHead className="text-right">✓</TableHead>
+                    <TableHead className="text-right">✗</TableHead>
+                    <TableHead className="text-right">Dif</TableHead>
+                    <TableHead className="text-right">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {posiciones.map((row) => {
+                  {posiciones.map((row, idx) => {
                     const pareja = parejas.find((p) => p.id === row.parejaId)!;
+                    const wins = metricView === "partidos" ? row.partidosGanados : row.gamesGanados;
+                    const losses = metricView === "partidos" ? row.partidosPerdidos : row.gamesPerdidos;
+                    const total = metricView === "partidos" ? row.partidosJugados : row.gamesJugados;
+                    const diff = wins - losses;
+                    const percent = total > 0 ? Math.round((wins / total) * 100) : 0;
                     return (
                       <TableRow key={row.parejaId}>
-                        <TableCell className="font-medium">{row.puntos}</TableCell>
+                        <TableCell className="font-medium">{idx + 1}</TableCell>
                         <TableCell>{nombrePareja(pareja)}</TableCell>
-                        <TableCell className="text-right">{row.partidosJugados}</TableCell>
-                        <TableCell className="text-right">{row.partidosGanados}</TableCell>
-                        <TableCell className="text-right">{row.porcentajePartidosGanados.toFixed(0)}%</TableCell>
-                        <TableCell className="text-right">{row.gamesJugados}</TableCell>
-                        <TableCell className="text-right">{row.gamesGanados}</TableCell>
-                        <TableCell className="text-right">{row.porcentajeGamesGanados.toFixed(0)}%</TableCell>
+                        <TableCell className="text-right">{wins}</TableCell>
+                        <TableCell className="text-right">{losses}</TableCell>
+                        <TableCell className="text-right">{diff >= 0 ? "+" : ""}{diff}</TableCell>
+                        <TableCell className="text-right">{percent}%</TableCell>
                       </TableRow>
                     );
                   })}
                   {posiciones.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                         Sin datos de posiciones
                       </TableCell>
                     </TableRow>
