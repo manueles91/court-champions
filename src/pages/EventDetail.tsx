@@ -190,7 +190,6 @@ export default function EventDetailPage() {
   const { evento, parejas, partidos, rondas } = useEventoData(id);
 
   const [rondaSeleccionada, setRondaSeleccionada] = useState<number | undefined>(rondas[0]);
-  const [metricView, setMetricView] = useState<"partidos" | "games">("partidos");
 
   const posiciones = useMemo(() => computeAggregatesPorPareja(partidos, parejas), [partidos, parejas]);
 
@@ -366,70 +365,49 @@ export default function EventDetailPage() {
         <TabsContent value="positions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Podio</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-3">
-                {posiciones.slice(0, 3).map((row, idx) => {
-                  const pareja = parejas.find((p) => p.id === row.parejaId)!;
-                  const label = idx === 0 ? "1er lugar: +50pts" : idx === 1 ? "2do lugar: +25pts" : "3er lugar: +10pts";
-                  return (
-                    <div key={row.parejaId} className={`rounded-md border p-3 ${idx === 0 ? "bg-muted" : ""}`}>
-                      <div className="text-sm text-muted-foreground mb-1">{label}</div>
-                      <div className="font-medium">{nombrePareja(pareja)}</div>
-                    </div>
-                  );
-                })}
-                {posiciones.length === 0 && <div className="text-sm text-muted-foreground col-span-3">Sin datos</div>}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Tabs value={metricView} onValueChange={(v) => setMetricView(v as "partidos" | "games")}> 
-                  <TabsList>
-                    <TabsTrigger value="partidos">Partidos</TabsTrigger>
-                    <TabsTrigger value="games">Games</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+              <CardTitle>Posiciones</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Parejas</TableHead>
-                    <TableHead className="text-right">✓</TableHead>
-                    <TableHead className="text-right">✗</TableHead>
-                    <TableHead className="text-right">Dif</TableHead>
-                    <TableHead className="text-right">%</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Pair</TableHead>
+                    <TableHead className="text-right">Matches won</TableHead>
+                    <TableHead className="text-right">Matches tied</TableHead>
+                    <TableHead className="text-right">Matches lost</TableHead>
+                    <TableHead className="text-right">Matches played</TableHead>
+                    <TableHead className="text-right">Matches %</TableHead>
+                    <TableHead className="text-right">Games won</TableHead>
+                    <TableHead className="text-right">Games lost</TableHead>
+                    <TableHead className="text-right">Games played</TableHead>
+                    <TableHead className="text-right">Games %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {posiciones.map((row, idx) => {
                     const pareja = parejas.find((p) => p.id === row.parejaId)!;
-                    const wins = metricView === "partidos" ? row.partidosGanados : row.gamesGanados;
-                    const losses = metricView === "partidos" ? row.partidosPerdidos : row.gamesPerdidos;
-                    const total = metricView === "partidos" ? row.partidosJugados : row.gamesJugados;
-                    const diff = wins - losses;
-                    const percent = total > 0 ? Math.round((wins / total) * 100) : 0;
+                    const matchesPercent = row.partidosJugados > 0 ? Math.round((row.partidosGanados / row.partidosJugados) * 100) : 0;
+                    const gamesPercent = row.gamesJugados > 0 ? Math.round((row.gamesGanados / row.gamesJugados) * 100) : 0;
                     return (
                       <TableRow key={row.parejaId}>
                         <TableCell className="font-medium">{idx + 1}</TableCell>
                         <TableCell>{nombrePareja(pareja)}</TableCell>
-                        <TableCell className="text-right">{wins}</TableCell>
-                        <TableCell className="text-right">{losses}</TableCell>
-                        <TableCell className="text-right">{diff >= 0 ? "+" : ""}{diff}</TableCell>
-                        <TableCell className="text-right">{percent}%</TableCell>
+                        <TableCell className="text-right">{row.partidosGanados}</TableCell>
+                        <TableCell className="text-right">{row.partidosEmpatados}</TableCell>
+                        <TableCell className="text-right">{row.partidosPerdidos}</TableCell>
+                        <TableCell className="text-right">{row.partidosJugados}</TableCell>
+                        <TableCell className="text-right">{matchesPercent}%</TableCell>
+                        <TableCell className="text-right">{row.gamesGanados}</TableCell>
+                        <TableCell className="text-right">{row.gamesPerdidos}</TableCell>
+                        <TableCell className="text-right">{row.gamesJugados}</TableCell>
+                        <TableCell className="text-right">{gamesPercent}%</TableCell>
                       </TableRow>
                     );
                   })}
                   {posiciones.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground">
                         Sin datos de posiciones
                       </TableCell>
                     </TableRow>
