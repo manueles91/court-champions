@@ -233,15 +233,15 @@ export default function EventDetailPage() {
         <p className="text-sm text-muted-foreground">Sábado 24 May 2025, 9:00 AM</p>
       </header>
 
-      <Tabs defaultValue="pairs" className="w-full">
+      <Tabs defaultValue="players" className="w-full">
         <TabsList>
-          <TabsTrigger value="pairs">Parejas</TabsTrigger>
+          <TabsTrigger value="players">Jugadores</TabsTrigger>
           <TabsTrigger value="rounds">Rondas</TabsTrigger>
           <TabsTrigger value="positions">Posiciones</TabsTrigger>
         </TabsList>
 
         {/* PAREJAS */}
-        <TabsContent value="pairs" className="space-y-4">
+        <TabsContent value="players" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Parejas inscriptas</CardTitle>
