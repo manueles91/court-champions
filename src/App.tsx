@@ -8,6 +8,8 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Players from "./pages/Players";
 import Ranking from "./pages/Ranking";
+import Events from "./pages/Events";
+import EventDetail from "./pages/EventDetail";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,8 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/players" element={<Players />} />
           <Route path="/ranking" element={<Ranking />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/events/:id" element={<EventDetail />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
