@@ -16,6 +16,9 @@ const Index = () => {
           <Button variant="secondary" asChild>
             <Link to="/players">Gestionar Jugadores</Link>
           </Button>
+          <Button variant="outline" asChild>
+            <Link to="/ranking">Ver Ranking</Link>
+          </Button>
         </div>
       </div>
     </div>
