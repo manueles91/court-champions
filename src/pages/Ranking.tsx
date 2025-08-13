@@ -127,7 +127,7 @@ const Ranking = () => {
         description={`${pageTitle} con puntos, victorias, empates, derrotas y diferencia de games.`}
         canonicalPath="/ranking"
       />
-      <main className="container mx-auto px-4 py-10 space-y-6">
+      <main className="container mx-auto py-10 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
           <div className="flex items-center gap-3">
