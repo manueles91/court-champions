@@ -3,9 +3,6 @@ import { useParams } from "react-router-dom";
 import Seo from "@/components/Seo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -14,58 +11,61 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// --- Types aligned with PRD ---
+// --- Tipos ---
 export type Usuario = { id: string; nombre: string; email?: string | null; telefono?: string | null };
 export type Pareja = { id: string; jugador1Id: string; jugador2Id: string };
+export type EventoDetalle = { id: string; nombre: string; categoria: string };
+
+// Resultado: 1 gana pareja1, 2 gana pareja2, 0 empate, undefined = partido futuro
 export type Partido = {
   id: string;
   eventoId: string;
   pareja1Id: string;
   pareja2Id: string;
-  gamesPareja1: number;
-  gamesPareja2: number;
-  ganador: 1 | 2;
-};
-export type EstadisticaPartidoJugador = {
-  partidoId: string;
-  jugadorId: string;
-  gamesGanados: number;
-  gamesJugados: number;
-  resultado: 0 | 1;
-};
-export type ResultadoTorneoJugador = {
-  eventoId: string;
-  jugadorId: string;
-  puntos: number;
-  posicion: number;
+  ronda: number;
+  fechaISO?: string; // para "próximos" partidos
+  gamesPareja1?: number;
+  gamesPareja2?: number;
+  resultado?: 1 | 2 | 0;
 };
 
 // --- Mock data ---
+const mockEventos: EventoDetalle[] = [
+  { id: "t1", nombre: "Apertura 2025", categoria: "Intermedio" },
+  { id: "t2", nombre: "Clausura 2025", categoria: "Avanzado" },
+];
+
 const mockUsuarios: Usuario[] = [
   { id: "1", nombre: "Ana López" },
   { id: "2", nombre: "Carlos Pérez" },
   { id: "3", nombre: "María Gómez" },
   { id: "4", nombre: "Jorge Ruiz" },
+  { id: "5", nombre: "Lucía Díaz" },
+  { id: "6", nombre: "Pedro Ortiz" },
 ];
 
 const mockParejas: Pareja[] = [
   { id: "p1", jugador1Id: "1", jugador2Id: "2" },
   { id: "p2", jugador1Id: "3", jugador2Id: "4" },
+  { id: "p3", jugador1Id: "5", jugador2Id: "6" },
 ];
+
+const now = Date.now();
+const in1h = new Date(now + 60 * 60 * 1000).toISOString();
+const in2h = new Date(now + 2 * 60 * 60 * 1000).toISOString();
 
 const mockPartidos: Partido[] = [
-  { id: "m1", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p2", gamesPareja1: 6, gamesPareja2: 0, ganador: 1 },
+  // Ronda 1: jugados
+  { id: "m1", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p2", ronda: 1, gamesPareja1: 6, gamesPareja2: 4, resultado: 1 },
+  { id: "m2", eventoId: "t1", pareja1Id: "p3", pareja2Id: "p2", ronda: 1, gamesPareja1: 5, gamesPareja2: 5, resultado: 0 },
+  // Ronda 2: uno jugado, uno próximo
+  { id: "m3", eventoId: "t1", pareja1Id: "p1", pareja2Id: "p3", ronda: 2, gamesPareja1: 3, gamesPareja2: 6, resultado: 2 },
+  { id: "m4", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p1", ronda: 2, fechaISO: in1h },
+  // Ronda 3: próximos
+  { id: "m5", eventoId: "t1", pareja1Id: "p2", pareja2Id: "p3", ronda: 3, fechaISO: in2h },
 ];
-
-function useEventoData(eventoId: string) {
-  // In a real app, fetch by eventoId
-  const jugadores = mockUsuarios;
-  const parejas = mockParejas;
-  const partidos = mockPartidos.filter((m) => m.eventoId === eventoId);
-  return { jugadores, parejas, partidos };
-}
 
 function nombreJugador(id: string) {
   return mockUsuarios.find((u) => u.id === id)?.nombre ?? "";
@@ -75,169 +75,190 @@ function nombrePareja(pareja: Pareja) {
   return `${nombreJugador(pareja.jugador1Id)} / ${nombreJugador(pareja.jugador2Id)}`;
 }
 
-function computeEstadisticasPorJugador(partidos: Partido[], parejas: Pareja[]): EstadisticaPartidoJugador[] {
-  const parejaById = new Map(parejas.map((p) => [p.id, p] as const));
-  const stats: EstadisticaPartidoJugador[] = [];
-
-  for (const partido of partidos) {
-    const p1 = parejaById.get(partido.pareja1Id)!;
-    const p2 = parejaById.get(partido.pareja2Id)!;
-
-    const ganadorPareja = partido.ganador === 1 ? p1 : p2;
-    const perdedorPareja = partido.ganador === 1 ? p2 : p1;
-    const gamesGanador = Math.max(partido.gamesPareja1, partido.gamesPareja2);
-    const gamesPerdedor = Math.min(partido.gamesPareja1, partido.gamesPareja2);
-
-    for (const jugadorId of [ganadorPareja.jugador1Id, ganadorPareja.jugador2Id]) {
-      stats.push({
-        partidoId: partido.id,
-        jugadorId,
-        gamesGanados: gamesGanador,
-        gamesJugados: gamesGanador,
-        resultado: 1,
-      });
-    }
-    for (const jugadorId of [perdedorPareja.jugador1Id, perdedorPareja.jugador2Id]) {
-      stats.push({
-        partidoId: partido.id,
-        jugadorId,
-        gamesGanados: gamesPerdedor,
-        gamesJugados: gamesGanador,
-        resultado: 0,
-      });
-    }
-  }
-
-  return stats;
+function useEventoData(eventoId: string) {
+  const evento = mockEventos.find((e) => e.id === eventoId) ?? { id: eventoId, nombre: `Evento ${eventoId}`, categoria: "General" };
+  const parejas = mockParejas;
+  const partidos = mockPartidos.filter((m) => m.eventoId === eventoId);
+  const rondas = Array.from(new Set(partidos.map((p) => p.ronda))).sort((a, b) => a - b);
+  return { evento, parejas, partidos, rondas };
 }
 
-function computeResultadosFinales(partidos: Partido[], parejas: Pareja[]): ResultadoTorneoJugador[] {
-  const stats = computeEstadisticasPorJugador(partidos, parejas);
-  const byJugador = new Map<string, { puntos: number }>();
+// --- Cálculos de posiciones por pareja ---
+export type PosicionPareja = {
+  parejaId: string;
+  puntos: number; // 1 por victoria, 0.5 por empate
+  partidosJugados: number;
+  partidosGanados: number;
+  porcentajePartidosGanados: number; // 0-100
+  gamesJugados: number;
+  gamesGanados: number;
+  porcentajeGamesGanados: number; // 0-100
+};
 
-  for (const row of stats) {
-    const current = byJugador.get(row.jugadorId) ?? { puntos: 0 };
-    current.puntos += row.resultado === 1 ? 1 : 0; // 1 punto por victoria
-    byJugador.set(row.jugadorId, current);
+function computeTablaPosicionesPorPareja(partidos: Partido[], parejas: Pareja[]): PosicionPareja[] {
+  const finalizados = partidos.filter((p) => p.resultado !== undefined && p.gamesPareja1 !== undefined && p.gamesPareja2 !== undefined);
+  const acumulado = new Map<string, { puntos: number; pj: number; pg: number; gj: number; gg: number }>();
+
+  function ensure(pairId: string) {
+    if (!acumulado.has(pairId)) {
+      acumulado.set(pairId, { puntos: 0, pj: 0, pg: 0, gj: 0, gg: 0 });
+    }
+    return acumulado.get(pairId)!;
   }
 
-  const resultados = Array.from(byJugador.entries())
-    .map(([jugadorId, { puntos }]) => ({ eventoId: "", jugadorId, puntos, posicion: 0 }))
-    .sort((a, b) => b.puntos - a.puntos)
-    .map((r, idx) => ({ ...r, posicion: idx + 1 }));
+  for (const p of finalizados) {
+    const pareja1 = ensure(p.pareja1Id);
+    const pareja2 = ensure(p.pareja2Id);
 
-  return resultados;
+    const games1 = p.gamesPareja1!;
+    const games2 = p.gamesPareja2!;
+
+    pareja1.pj += 1;
+    pareja2.pj += 1;
+
+    pareja1.gj += games1 + games2;
+    pareja2.gj += games1 + games2;
+
+    pareja1.gg += games1;
+    pareja2.gg += games2;
+
+    if (p.resultado === 1) {
+      pareja1.pg += 1;
+      pareja1.puntos += 1;
+    } else if (p.resultado === 2) {
+      pareja2.pg += 1;
+      pareja2.puntos += 1;
+    } else if (p.resultado === 0) {
+      pareja1.puntos += 0.5;
+      pareja2.puntos += 0.5;
+    }
+  }
+
+  const rows: PosicionPareja[] = parejas.map((pareja) => {
+    const acc = acumulado.get(pareja.id) ?? { puntos: 0, pj: 0, pg: 0, gj: 0, gg: 0 };
+    const porcentajePartidosGanados = acc.pj > 0 ? (acc.pg / acc.pj) * 100 : 0;
+    const porcentajeGamesGanados = acc.gj > 0 ? (acc.gg / acc.gj) * 100 : 0;
+    return {
+      parejaId: pareja.id,
+      puntos: acc.puntos,
+      partidosJugados: acc.pj,
+      partidosGanados: acc.pg,
+      porcentajePartidosGanados,
+      gamesJugados: acc.gj,
+      gamesGanados: acc.gg,
+      porcentajeGamesGanados,
+    };
+  });
+
+  return rows.sort((a, b) => {
+    if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+    if (b.porcentajePartidosGanados !== a.porcentajePartidosGanados) return b.porcentajePartidosGanados - a.porcentajePartidosGanados;
+    return b.porcentajeGamesGanados - a.porcentajeGamesGanados;
+  });
 }
 
 export default function EventDetailPage() {
   const { id = "t1" } = useParams();
-  const { jugadores, parejas, partidos } = useEventoData(id);
-  const [nuevoResultado, setNuevoResultado] = useState({ pareja1Id: parejas[0]?.id ?? "", pareja2Id: parejas[1]?.id ?? "", games1: 6, games2: 0 });
+  const { evento, parejas, partidos, rondas } = useEventoData(id);
 
-  const statsPorJugador = useMemo(() => computeEstadisticasPorJugador(partidos, parejas), [partidos, parejas]);
-  const resultadosFinales = useMemo(() => computeResultadosFinales(partidos, parejas), [partidos, parejas]);
+  const [rondaSeleccionada, setRondaSeleccionada] = useState<number | undefined>(rondas[0]);
 
-  const onAgregarResultado = (e: React.FormEvent) => {
-    e.preventDefault();
-    // En MVP, no persistimos. Mostraría cómo se guardaría.
-    // Aquí podríamos hacer un toast indicando que se requiere backend.
-    // deliberately no-op
-  };
+  const posiciones = useMemo(() => computeTablaPosicionesPorPareja(partidos, parejas), [partidos, parejas]);
+
+  const partidosProximos = useMemo(() => {
+    if (!rondaSeleccionada) return [] as Partido[];
+    return partidos.filter((p) => p.ronda === rondaSeleccionada && p.resultado === undefined);
+  }, [partidos, rondaSeleccionada]);
 
   return (
     <main className="container py-8 space-y-6">
-      <Seo title={`Evento ${id} - Court Champions`} description="Detalle de jugadores, partidos y resultados del evento." canonicalPath={`/events/${id}`} />
+      <Seo title={`${evento.nombre} - Court Champions`} description={`Detalle del pozo: ${evento.nombre}`} canonicalPath={`/events/${id}`} />
 
       <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Detalle del Evento</h1>
-        <p className="text-muted-foreground">Jugadores, partidos y resultados.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{evento.nombre}</h1>
+        <p className="text-muted-foreground">Categoría: {evento.categoria}</p>
       </header>
 
-      <Tabs defaultValue="players" className="w-full">
+      <Tabs defaultValue="pairs" className="w-full">
         <TabsList>
-          <TabsTrigger value="players">Jugadores</TabsTrigger>
-          <TabsTrigger value="matches">Partidos</TabsTrigger>
-          <TabsTrigger value="results">Resultados</TabsTrigger>
+          <TabsTrigger value="pairs">Parejas</TabsTrigger>
+          <TabsTrigger value="rounds">Rondas</TabsTrigger>
+          <TabsTrigger value="positions">Posiciones</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="players" className="space-y-4">
+        <TabsContent value="pairs" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Inscritos</CardTitle>
+              <CardTitle>Parejas inscriptas</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {jugadores.map((j) => (
-                  <li key={j.id} className="rounded-md border p-3">
-                    <p className="font-medium">{j.nombre}</p>
-                    <p className="text-sm text-muted-foreground">ID: {j.id}</p>
+                {parejas.map((p) => (
+                  <li key={p.id} className="rounded-md border p-3">
+                    <p className="font-medium">{nombrePareja(p)}</p>
+                    <p className="text-sm text-muted-foreground">ID: {p.id}</p>
                   </li>
                 ))}
+                {parejas.length === 0 && <li className="text-sm text-muted-foreground">Sin parejas inscriptas</li>}
               </ul>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="matches" className="space-y-4">
+        <TabsContent value="rounds" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Registrar resultado</CardTitle>
+              <CardTitle>Seleccionar ronda</CardTitle>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={onAgregarResultado} className="grid md:grid-cols-4 gap-3">
-                <div className="space-y-2">
-                  <Label>Pareja 1</Label>
-                  <Input value={nuevoResultado.pareja1Id} onChange={(e) => setNuevoResultado({ ...nuevoResultado, pareja1Id: e.target.value })} placeholder="p1" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Pareja 2</Label>
-                  <Input value={nuevoResultado.pareja2Id} onChange={(e) => setNuevoResultado({ ...nuevoResultado, pareja2Id: e.target.value })} placeholder="p2" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Games P1</Label>
-                  <Input type="number" min={0} max={7} value={nuevoResultado.games1} onChange={(e) => setNuevoResultado({ ...nuevoResultado, games1: Number(e.target.value) })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Games P2</Label>
-                  <Input type="number" min={0} max={7} value={nuevoResultado.games2} onChange={(e) => setNuevoResultado({ ...nuevoResultado, games2: Number(e.target.value) })} />
-                </div>
-                <div className="md:col-span-4">
-                  <Button type="submit">Guardar resultado</Button>
-                </div>
-              </form>
+            <CardContent className="flex items-center gap-3">
+              <Select
+                value={rondaSeleccionada?.toString()}
+                onValueChange={(v) => setRondaSeleccionada(Number(v))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Ronda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rondas.map((r) => (
+                    <SelectItem key={r} value={r.toString()}>
+                      Ronda {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Partidos</CardTitle>
+              <CardTitle>Próximos partidos</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    <TableHead>Fecha</TableHead>
                     <TableHead>Pareja 1</TableHead>
                     <TableHead>Pareja 2</TableHead>
-                    <TableHead className="text-right">Marcador</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {partidos.map((p) => {
-                    const p1 = mockParejas.find((pp) => pp.id === p.pareja1Id)!;
-                    const p2 = mockParejas.find((pp) => pp.id === p.pareja2Id)!;
+                  {partidosProximos.map((p) => {
+                    const p1 = parejas.find((pp) => pp.id === p.pareja1Id)!;
+                    const p2 = parejas.find((pp) => pp.id === p.pareja2Id)!;
                     return (
                       <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.id}</TableCell>
+                        <TableCell className="font-medium">{p.fechaISO ? new Date(p.fechaISO).toLocaleString() : "-"}</TableCell>
                         <TableCell>{nombrePareja(p1)}</TableCell>
                         <TableCell>{nombrePareja(p2)}</TableCell>
-                        <TableCell className="text-right">{p.gamesPareja1} - {p.gamesPareja2}</TableCell>
                       </TableRow>
                     );
                   })}
-                  {partidos.length === 0 && (
+                  {partidosProximos.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">Sin partidos</TableCell>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        No hay partidos próximos para la ronda seleccionada
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -246,66 +267,46 @@ export default function EventDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="results" className="space-y-4">
+        <TabsContent value="positions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Estadísticas por jugador (partidos)</CardTitle>
+              <CardTitle>Tabla de posiciones</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Jugador</TableHead>
-                    <TableHead className="text-right">Games ganados</TableHead>
+                    <TableHead>Puntos</TableHead>
+                    <TableHead>Pareja</TableHead>
+                    <TableHead className="text-right">Partidos jugados</TableHead>
+                    <TableHead className="text-right">Partidos ganados</TableHead>
+                    <TableHead className="text-right">% partidos ganados</TableHead>
                     <TableHead className="text-right">Games jugados</TableHead>
-                    <TableHead className="text-right">Resultado</TableHead>
+                    <TableHead className="text-right">Games ganados</TableHead>
+                    <TableHead className="text-right">% games ganados</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {statsPorJugador.map((s) => (
-                    <TableRow key={`${s.partidoId}-${s.jugadorId}`}>
-                      <TableCell>{nombreJugador(s.jugadorId)}</TableCell>
-                      <TableCell className="text-right">{s.gamesGanados}</TableCell>
-                      <TableCell className="text-right">{s.gamesJugados}</TableCell>
-                      <TableCell className="text-right">{s.resultado === 1 ? "Ganó" : "Perdió"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {statsPorJugador.length === 0 && (
+                  {posiciones.map((row) => {
+                    const pareja = parejas.find((p) => p.id === row.parejaId)!;
+                    return (
+                      <TableRow key={row.parejaId}>
+                        <TableCell className="font-medium">{row.puntos}</TableCell>
+                        <TableCell>{nombrePareja(pareja)}</TableCell>
+                        <TableCell className="text-right">{row.partidosJugados}</TableCell>
+                        <TableCell className="text-right">{row.partidosGanados}</TableCell>
+                        <TableCell className="text-right">{row.porcentajePartidosGanados.toFixed(0)}%</TableCell>
+                        <TableCell className="text-right">{row.gamesJugados}</TableCell>
+                        <TableCell className="text-right">{row.gamesGanados}</TableCell>
+                        <TableCell className="text-right">{row.porcentajeGamesGanados.toFixed(0)}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {posiciones.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">Sin estadísticas registradas</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Resultados finales (por jugador)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pos</TableHead>
-                    <TableHead>Jugador</TableHead>
-                    <TableHead className="text-right">Puntos</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {resultadosFinales.map((r, idx) => (
-                    <TableRow key={r.jugadorId}>
-                      <TableCell className="font-medium">{idx + 1}</TableCell>
-                      <TableCell>{nombreJugador(r.jugadorId)}</TableCell>
-                      <TableCell className="text-right">{r.puntos}</TableCell>
-                    </TableRow>
-                  ))}
-                  {resultadosFinales.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground">Sin resultados</TableCell>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        Sin datos de posiciones
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
