@@ -71,7 +71,7 @@ export default function EventsPage() {
             <TableBody>
               {mockEvents.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.nombre}</TableCell>
+                  <TableCell className="font-medium"><Link to={`/events/${e.id}`} className="hover:underline">{e.nombre}</Link></TableCell>
                   <TableCell>{new Date(e.inicio).toLocaleString()}</TableCell>
                   <TableCell>{e.jugadoresInscritos}</TableCell>
                   <TableCell>
