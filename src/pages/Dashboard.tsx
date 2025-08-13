@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Link } from "react-router-dom";
 import Seo from "@/components/Seo";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const schema = z.object({
   nombre: z.string().min(2, "Ingresa un nombre"),
@@ -30,12 +31,20 @@ export default function Dashboard() {
     },
   });
 
-  const onSubmit = (values: FormValues) => {
-    console.log("Pozo configurado", values);
-    toast({
-      title: "Pozo configurado",
-      description: "Guardado pendiente de esquema en Supabase.",
-    });
+  const onSubmit = async (values: FormValues) => {
+    const payload = {
+      nombre: values.nombre,
+      inicio: new Date(values.inicio).toISOString(),
+      duracion_partido_min: values.duracionPartidoMin,
+      duracion_pozo_min: values.duracionPozoMin,
+    };
+    const { data, error } = await supabase.from("pozos_torneos").insert(payload).select("id").single();
+    if (error) {
+      toast({ title: "Error al guardar", description: error.message });
+      return;
+    }
+    toast({ title: "Pozo creado", description: "Ahora puedes inscribir jugadores." });
+    // Navegar o mostrar link a detalle
   };
 
   return (
