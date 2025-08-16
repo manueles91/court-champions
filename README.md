@@ -72,6 +72,63 @@ To connect a domain, navigate to Project > Settings > Domains and click Connect 
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
 
+## Database Setup (Supabase)
+
+This project uses Supabase as the backend database. The database schema includes tables for users, tournaments, pairs, matches, and statistics with automated triggers for match validation and stats calculation.
+
+### Running Migrations
+
+**Option 1: Via Supabase Dashboard (Recommended)**
+1. Go to the [SQL Editor](https://supabase.com/dashboard/project/court-champions/sql/new) in your Supabase project
+2. Copy and paste the contents of the migration files from `supabase/migrations/`
+3. Click "Run" to execute the migration
+
+**Option 2: Via Supabase CLI**
+```sh
+# Install Supabase CLI
+npm install -g supabase
+
+# Link to your project
+supabase link --project-ref court-champions
+
+# Push migrations
+supabase db push
+```
+
+### Running Seed Data
+
+**Via Supabase Dashboard:**
+1. Go to the [SQL Editor](https://supabase.com/dashboard/project/court-champions/sql/new)
+2. Copy and paste the contents of `supabase/seed.sql`
+3. Click "Run" to populate test data
+
+**Via Supabase CLI:**
+```sh
+supabase db reset --linked
+```
+
+The seed data includes:
+- 8 test players
+- 1 sample tournament "Pozo Test Agosto 2025"
+- 4 pairs of players
+- Tournament enrollments
+- 2 sample matches with scores
+- Calculated match and tournament statistics
+
+### Database Schema
+
+- **users**: Player profiles with unique identity constraints
+- **tournaments**: Tournament information with type and format
+- **pairs**: Player pairs for each tournament
+- **tournament_enrollments**: Player registrations
+- **matches**: Match results with automated winner calculation
+- **match_stats**: Individual player statistics per match
+- **tournament_stats**: Overall tournament rankings and points
+
+### Security
+
+All tables have Row Level Security (RLS) enabled with permissive policies for development. Tighten these policies when implementing authentication.
+
 ## Rutas añadidas (PRD Pádel)
 
 - `/events`: listado de pozos/torneos
